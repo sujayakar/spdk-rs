@@ -29,13 +29,14 @@ fn main() {
     println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
 
     let libs = &[
-        "spdk_log",
         "spdk_nvme",
         "spdk_sock",
         "spdk_sock_posix",
         "spdk_thread",
         "spdk_util",
+        "spdk_vmd",
         "spdk_env_dpdk",
+        "spdk_log",
     ];
 
     let mut header_locations = BTreeSet::new();
@@ -47,15 +48,44 @@ fn main() {
             .unwrap_or_else(|e| panic!("Failed pkg-config cflags for {}: {:?}", lib, e))
             .stdout;
         let cflags = String::from_utf8(cflags_bytes).unwrap();
-        println!("{} cflags {}", lib, cflags);
 
         for flag in cflags.split(' ') {
             if flag.starts_with("-I") {
                 let header_location = flag[2..].trim();
                 header_locations.insert(header_location.to_owned());
+            } 
+        }
+    }
+
+    let mut library_locations = BTreeSet::new();
+    let mut lib_names = BTreeSet::new();
+
+    for lib in libs {
+        let ldflags_bytes = Command::new("pkg-config")
+            .args(&["--libs", lib])
+            .output()
+            .unwrap_or_else(|e| panic!("Failed pkg-config ldflags for {}: {:?}", lib, e))
+            .stdout;
+        let ldflags = String::from_utf8(ldflags_bytes).unwrap();
+        
+        for flag in ldflags.split(' ') {
+            if flag.starts_with("-L") {
+                library_locations.insert(flag[2..].to_owned());
+            } else if flag.starts_with("-l") {
+                lib_names.insert(flag[2..].to_owned());
             }
         }
     }
+
+    for library_location in &library_locations {
+        println!("cargo:rustc-link-search={}", library_location);
+    }
+    for lib_name in &lib_names {
+        println!("cargo:rustc-link-lib={}", lib_name);
+    }
+    println!("cargo:rustc-link-lib=spdk_env_dpdk");
+    println!("cargo:rustc-link-lib=spdk_log");
+    println!("cargo:rustc-link-lib=uuid");
 
     let mut builder = Builder::default();
     for header_location in &header_locations {

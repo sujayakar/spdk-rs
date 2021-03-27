@@ -11,3 +11,4 @@ bindgen = "0.55.1"
 cc = "1.0"
 
 [dependencies]
+dpdk-rs = { git = "https://github.com/sujayakar/dpdk-rs", rev = "4cd0c7724cfe56f0150f9b55004c45fb47d83f18" }
